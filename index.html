@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat Service - Socket.IO Demo</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        color: white;
+        text-align: center;
+        margin-bottom: 30px;
+        font-size: 2.5em;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+
+      .card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+
+      .card h2 {
+        color: #667eea;
+        margin-bottom: 15px;
+        font-size: 1.5em;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 10px;
+      }
+
+      .status {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+        margin-bottom: 15px;
+      }
+
+      .status.connected {
+        background: #10b981;
+        color: white;
+      }
+
+      .status.disconnected {
+        background: #ef4444;
+        color: white;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        padding: 12px;
+        margin: 8px 0;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: border 0.3s;
+      }
+
+      input:focus,
+      textarea:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      button {
+        width: 100%;
+        padding: 12px;
+        margin: 8px 0;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.3s;
+      }
+
+      button:hover {
+        background: #5568d3;
+      }
+
+      button:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+      }
+
+      .secondary {
+        background: #6b7280;
+      }
+
+      .secondary:hover {
+        background: #4b5563;
+      }
+
+      .messages {
+        max-height: 400px;
+        overflow-y: auto;
+        background: #f9fafb;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+      }
+
+      .message {
+        background: white;
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .message.sent {
+        border-left-color: #10b981;
+        background: #ecfdf5;
+      }
+
+      .message.received {
+        border-left-color: #3b82f6;
+        background: #eff6ff;
+      }
+
+      .message .sender {
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 5px;
+      }
+
+      .message .content {
+        color: #374151;
+        margin: 5px 0;
+      }
+
+      .message .time {
+        font-size: 12px;
+        color: #9ca3af;
+      }
+
+      .log {
+        background: #1f2937;
+        color: #10b981;
+        padding: 15px;
+        border-radius: 8px;
+        font-family: "Courier New", monospace;
+        font-size: 13px;
+        max-height: 200px;
+        overflow-y: auto;
+        margin-top: 10px;
+      }
+
+      .log div {
+        margin: 5px 0;
+      }
+
+      .error {
+        color: #ef4444;
+      }
+
+      .info {
+        color: #3b82f6;
+      }
+
+      .full-width {
+        grid-column: 1 / -1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🚀 Chat Service - Socket.IO Demo</h1>
+
+      <div class="grid">
+        <!-- Authentication Card -->
+        <div class="card">
+          <h2>🔐 Authentication</h2>
+          <div id="connectionStatus" class="status disconnected">
+            Disconnected
+          </div>
+
+          <input
+            type="email"
+            id="loginEmail"
+            placeholder="Email"
+            value="test@example.com"
+          />
+          <input
+            type="password"
+            id="loginPassword"
+            placeholder="Password"
+            value="password123"
+          />
+          <button onclick="login()">Login & Connect</button>
+
+          <hr style="margin: 20px 0; border: 1px solid #e5e7eb" />
+
+          <input
+            type="text"
+            id="registerUsername"
+            placeholder="Username"
+            value="testuser"
+          />
+          <input
+            type="email"
+            id="registerEmail"
+            placeholder="Email"
+            value="test@example.com"
+          />
+          <input
+            type="password"
+            id="registerPassword"
+            placeholder="Password"
+            value="password123"
+          />
+          <button onclick="register()" class="secondary">Register</button>
+
+          <button onclick="disconnect()" class="secondary">Disconnect</button>
+        </div>
+
+        <!-- Send Message Card -->
+        <div class="card">
+          <h2>💬 Send Message</h2>
+          <textarea
+            id="messageContent"
+            rows="3"
+            placeholder="Type your message..."
+          ></textarea>
+          <input
+            type="text"
+            id="messageRoom"
+            placeholder="Room ID (optional)"
+          />
+          <button onclick="sendMessage()" id="sendBtn" disabled>
+            Send Message
+          </button>
+        </div>
+
+        <!-- Room Management Card -->
+        <div class="card">
+          <h2>🏠 Room Management</h2>
+          <input type="text" id="joinRoomId" placeholder="Room ID" />
+          <button onclick="joinRoom()" id="joinBtn" disabled>Join Room</button>
+          <button onclick="leaveRoom()" id="leaveBtn" disabled>
+            Leave Room
+          </button>
+        </div>
+
+        <!-- Chat History Card -->
+        <div class="card">
+          <h2>📜 Chat History</h2>
+          <button onclick="getChatHistory()" id="historyBtn" disabled>
+            Load Chat History
+          </button>
+        </div>
+
+        <!-- Messages Display (Full Width) -->
+        <div class="card full-width">
+          <h2>📨 Messages</h2>
+          <div id="messages" class="messages">
+            <p style="text-align: center; color: #9ca3af">
+              No messages yet. Send a message to start!
+            </p>
+          </div>
+        </div>
+
+        <!-- Console Log (Full Width) -->
+        <div class="card full-width">
+          <h2>🖥️ Console Log</h2>
+          <div id="consoleLog" class="log">
+            <div class="info">
+              System ready. Please login to connect to Socket.IO server.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let socket = null;
+      let currentToken = null;
+      let currentUser = null;
+
+      // API Base URL
+      const API_URL = "http://localhost:5000";
+
+      // Log function
+      function log(message, type = "info") {
+        const consoleLog = document.getElementById("consoleLog");
+        const timestamp = new Date().toLocaleTimeString();
+        const div = document.createElement("div");
+        div.className = type;
+        div.textContent = `[${timestamp}] ${message}`;
+        consoleLog.appendChild(div);
+        consoleLog.scrollTop = consoleLog.scrollHeight;
+      }
+
+      // Update connection status
+      function updateStatus(connected) {
+        const statusEl = document.getElementById("connectionStatus");
+        statusEl.className = `status ${
+          connected ? "connected" : "disconnected"
+        }`;
+        statusEl.textContent = connected ? "Connected" : "Disconnected";
+
+        // Enable/disable buttons
+        const buttons = ["sendBtn", "joinBtn", "leaveBtn", "historyBtn"];
+        buttons.forEach((btnId) => {
+          document.getElementById(btnId).disabled = !connected;
+        });
+      }
+
+      // Register user
+      async function register() {
+        const username = document.getElementById("registerUsername").value;
+        const email = document.getElementById("registerEmail").value;
+        const password = document.getElementById("registerPassword").value;
+
+        if (!username || !email || !password) {
+          log("Please fill all registration fields", "error");
+          return;
+        }
+
+        try {
+          log("Registering user...");
+          const response = await fetch(`${API_URL}/api/users/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, email, password }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            log(`✓ Registration successful: ${data.user.username}`);
+            alert("Registration successful! You can now login.");
+          } else {
+            log(`✗ Registration failed: ${data.message}`, "error");
+            alert(`Registration failed: ${data.message}`);
+          }
+        } catch (error) {
+          log(`✗ Registration error: ${error.message}`, "error");
+          alert(`Registration error: ${error.message}`);
+        }
+      }
+
+      // Login user
+      async function login() {
+        const email = document.getElementById("loginEmail").value;
+        const password = document.getElementById("loginPassword").value;
+
+        if (!email || !password) {
+          log("Please enter email and password", "error");
+          return;
+        }
+
+        try {
+          log("Logging in...");
+          const response = await fetch(`${API_URL}/api/users/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            currentToken = data.token;
+            currentUser = data.user;
+            log(`✓ Login successful: ${currentUser.username}`);
+            connectSocket();
+          } else {
+            log(`✗ Login failed: ${data.message}`, "error");
+            alert(`Login failed: ${data.message}`);
+          }
+        } catch (error) {
+          log(`✗ Login error: ${error.message}`, "error");
+          alert(`Login error: ${error.message}`);
+        }
+      }
+
+      // Connect to Socket.IO
+      function connectSocket() {
+        if (!currentToken) {
+          log("No token available. Please login first.", "error");
+          return;
+        }
+
+        log("Connecting to Socket.IO server...");
+
+        socket = io(API_URL, {
+          query: { token: currentToken },
+        });
+
+        // Connection successful
+        socket.on("connect", () => {
+          log(`✓ Connected to server! Socket ID: ${socket.id}`);
+          updateStatus(true);
+        });
+
+        // Connection error
+        socket.on("connect_error", (error) => {
+          log(`✗ Connection error: ${error.message}`, "error");
+          updateStatus(false);
+        });
+
+        // Disconnection
+        socket.on("disconnect", () => {
+          log("✗ Disconnected from server", "error");
+          updateStatus(false);
+        });
+
+        // Receive message
+        socket.on("receive_message", (data) => {
+          log(`📨 Message received from ${data.chat.sender.username}`);
+          displayMessage(data.chat, data.roomId);
+        });
+
+        // Chat history
+        socket.on("chat_history", (data) => {
+          log(`📜 Received ${data.chats.length} chat messages`);
+          clearMessages();
+          data.chats.forEach((chat) => displayMessage(chat, data.roomId));
+        });
+
+        // Error
+        socket.on("error", (data) => {
+          log(`✗ Error: ${data.message}`, "error");
+          alert(`Error: ${data.message}`);
+        });
+      }
+
+      // Disconnect from Socket.IO
+      function disconnect() {
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+          log("Disconnected manually");
+          updateStatus(false);
+        }
+      }
+
+      // Send message
+      function sendMessage() {
+        const content = document.getElementById("messageContent").value;
+        const roomId = document.getElementById("messageRoom").value;
+
+        if (!content) {
+          log("Please enter a message", "error");
+          return;
+        }
+
+        if (!socket || !socket.connected) {
+          log("Not connected to server", "error");
+          return;
+        }
+
+        const data = { content };
+        if (roomId) data.roomId = roomId;
+
+        socket.emit("send_message", data);
+        log(`📤 Sending message${roomId ? ` to room ${roomId}` : ""}`);
+
+        // Clear input
+        document.getElementById("messageContent").value = "";
+      }
+
+      // Join room
+      function joinRoom() {
+        const roomId = document.getElementById("joinRoomId").value;
+
+        if (!roomId) {
+          log("Please enter a room ID", "error");
+          return;
+        }
+
+        if (!socket || !socket.connected) {
+          log("Not connected to server", "error");
+          return;
+        }
+
+        socket.emit("join_room", roomId);
+        log(`🏠 Joined room: ${roomId}`);
+      }
+
+      // Leave room
+      function leaveRoom() {
+        const roomId = document.getElementById("joinRoomId").value;
+
+        if (!roomId) {
+          log("Please enter a room ID", "error");
+          return;
+        }
+
+        if (!socket || !socket.connected) {
+          log("Not connected to server", "error");
+          return;
+        }
+
+        socket.emit("leave_room", roomId);
+        log(`🚪 Left room: ${roomId}`);
+      }
+
+      // Get chat history
+      function getChatHistory() {
+        const roomId = document.getElementById("messageRoom").value;
+
+        if (!socket || !socket.connected) {
+          log("Not connected to server", "error");
+          return;
+        }
+
+        const data = roomId ? { roomId } : undefined;
+        socket.emit("get_chat_history", data);
+        log("📜 Requesting chat history...");
+      }
+
+      // Display message
+      function displayMessage(chat, roomId) {
+        const messagesDiv = document.getElementById("messages");
+
+        // Remove "no messages" text
+        if (messagesDiv.querySelector("p")) {
+          messagesDiv.innerHTML = "";
+        }
+
+        const messageDiv = document.createElement("div");
+        const isSent = currentUser && chat.senderId === currentUser.id;
+        messageDiv.className = `message ${isSent ? "sent" : "received"}`;
+
+        const timestamp = new Date(chat.createdAt).toLocaleString("id-ID");
+
+        messageDiv.innerHTML = `
+          <div class="sender">
+            ${chat.sender.username} ${isSent ? "(You)" : ""}
+            ${
+              roomId
+                ? `<span style="color: #6b7280;">• Room: ${roomId}</span>`
+                : ""
+            }
+          </div>
+          <div class="content">${chat.content}</div>
+          <div class="time">${timestamp}</div>
+        `;
+
+        messagesDiv.appendChild(messageDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      }
+
+      // Clear messages
+      function clearMessages() {
+        const messagesDiv = document.getElementById("messages");
+        messagesDiv.innerHTML = "";
+      }
+
+      // Enter key to send message
+      document
+        .getElementById("messageContent")
+        .addEventListener("keypress", function (e) {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+          }
+        });
+
+      log("✓ Application initialized");
+    </script>
+  </body>
+</html>
